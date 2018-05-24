@@ -104,7 +104,7 @@ static struct page *brk_insert_page(struct brk_device *brk, sector_t sector)
 	 * restriction might be able to be lifted.
 	 */
 	gfp_flags = GFP_NOIO | __GFP_ZERO;
-#ifndef CONFIG_BLK_DEV_XIP
+#ifndef CONFIG_BRK_DEV_XIP
 	gfp_flags |= __GFP_HIGHMEM;
 #endif
 	page = alloc_page(gfp_flags);
@@ -370,7 +370,7 @@ static int brk_rw_page(struct block_device *bdev, sector_t sector,
 	return err;
 }
 
-#ifdef CONFIG_BLK_DEV_XIP
+#ifdef CONFIG_BRK_DEV_XIP
 static int brk_direct_access(struct block_device *bdev, sector_t sector,
 			void **kaddr, unsigned long *pfn)
 {
@@ -431,7 +431,7 @@ static const struct block_device_operations brk_fops = {
 	.owner =		THIS_MODULE,
 	.rw_page =		brk_rw_page,
 	.ioctl =		brk_ioctl,
-#ifdef CONFIG_BLK_DEV_XIP
+#ifdef CONFIG_BRK_DEV_XIP
 	.direct_access =	brk_direct_access,
 #endif
 };
@@ -440,7 +440,7 @@ static const struct block_device_operations brk_fops = {
  * And now the modules code and kernel interface.
  */
 static int rd_nr;
-int rd_size = CONFIG_BLK_DEV_RAM_SIZE;
+int rd_size = CONFIG_BRK_DEV_RAM_SIZE;
 static int max_part;
 static int part_shift;
 static int part_show = 0;
@@ -507,7 +507,7 @@ static struct brk_device *brk_alloc(int i)
 	disk->queue		= brk->brk_queue;
 	if (!part_show)
 		disk->flags |= GENHD_FL_SUPPRESS_PARTITION_INFO;
-	sprintf(disk->disk_name, "ram%d", i);
+	sprintf(disk->disk_name, "brick%d", i);
 	set_capacity(disk, rd_size * 2);
 
 	return brk;
@@ -582,7 +582,7 @@ static int __init brk_init(void)
 	 *
 	 * (1) if rd_nr is specified, create that many upfront, and this
 	 *     also becomes a hard limit.
-	 * (2) if rd_nr is not specified, create CONFIG_BLK_DEV_RAM_COUNT
+	 * (2) if rd_nr is not specified, create CONFIG_BRK_DEV_RAM_COUNT
 	 *     (default 16) rd device on module load, user can further
 	 *     extend brk device by create dev node themselves and have
 	 *     kernel automatically instantiate actual device on-demand.
@@ -613,7 +613,7 @@ static int __init brk_init(void)
 		nr = rd_nr;
 		range = rd_nr << part_shift;
 	} else {
-		nr = CONFIG_BLK_DEV_RAM_COUNT;
+		nr = CONFIG_BRK_DEV_RAM_COUNT;
 		range = 1UL << MINORBITS;
 	}
 
