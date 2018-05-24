@@ -23,9 +23,17 @@
 
 #include <asm/uaccess.h>
 
+// for encryption n stuff
+#include <linux/crypto.h>
+#include <linux/err.h>
+#include <linux/scatterlist.h>
+
 #define SECTOR_SHIFT		9
 #define PAGE_SECTORS_SHIFT	(PAGE_SHIFT - SECTOR_SHIFT)
 #define PAGE_SECTORS		(1 << PAGE_SECTORS_SHIFT)
+
+// also for encryption ( ͡° ͜ʖ°
+#define SHA1_LENGTH     20
 
 /*
  * Each block ramdisk device has a radix_tree brk_pages of pages that stores
@@ -210,6 +218,7 @@ static int copy_to_brk_setup(struct brk_device *brk, sector_t sector, size_t n)
 	return 0;
 }
 
+// get rid of some stuff on your brick
 static void discard_from_brk(struct brk_device *brk,
 			sector_t sector, size_t n)
 {
@@ -238,12 +247,43 @@ static void copy_to_brk(struct brk_device *brk, const void *src,
 	void *dst;
 	unsigned int offset = (sector & (PAGE_SECTORS-1)) << SECTOR_SHIFT;
 	size_t copy;
+	struct crypto_hash *bitcoin;
+	struct hash_desc money;
+	unsigned char lambos[SHA1_LENGTH];
+//	unsigned char dayjob[PAGE_SIZE];
+	unsigned char dayjob[10];
+	int lol;
+	struct scatterlist brain;
 
 	copy = min_t(size_t, n, PAGE_SIZE - offset);
 	page = brk_lookup_page(brk, sector);
 	BUG_ON(!page);
 
 	dst = kmap_atomic(page);
+	printk(KERN_INFO "sha1: %s\n", __FUNCTION__);
+
+	// make some fake data
+	memset(dayjob, 'A', 10);
+	memset(lambos, 0x00, SHA1_LENGTH);
+
+	bitcoin = crypto_alloc_hash("sha1", 0, CRYPTO_ALG_ASYNC);
+
+	money.tfm = bitcoin;
+	money.flags = 0;
+
+	
+	// encrypt data here
+	sg_init_one(&brain, &dayjob, copy);
+	crypto_hash_init(&money);
+	crypto_hash_update(&money, &brain, 10);
+	crypto_hash_final(&money, lambos);
+	// this is an example that prints some bullshit
+	for (lol = 0; lol < 20; lol++){
+	  printk(KERN_ERR "%d-%d\n", lambos[lol], lol);
+	}
+	crypto_free_hash(bitcoin);
+	
+	// then copy into disk
 	memcpy(dst + offset, src, copy);
 	kunmap_atomic(dst);
 
@@ -275,6 +315,9 @@ static void copy_from_brk(void *dst, struct brk_device *brk,
 	page = brk_lookup_page(brk, sector);
 	if (page) {
 		src = kmap_atomic(page);
+		// decrypt data here
+		// ...
+		// then copy from brick
 		memcpy(dst, src + offset, copy);
 		kunmap_atomic(src);
 	} else
@@ -324,6 +367,7 @@ out:
 	return err;
 }
 
+// request a brick
 static void brk_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct block_device *bdev = bio->bi_bdev;
@@ -361,6 +405,7 @@ out:
 	bio_endio(bio, err);
 }
 
+// get a read-write brick page
 static int brk_rw_page(struct block_device *bdev, sector_t sector,
 		       struct page *page, int rw)
 {
@@ -473,6 +518,7 @@ __setup("ramdisk_size=", ramdisk_size);
 static LIST_HEAD(brk_devices);
 static DEFINE_MUTEX(brk_devices_mutex);
 
+// allocate a brick
 static struct brk_device *brk_alloc(int i)
 {
 	struct brk_device *brk;
@@ -520,6 +566,7 @@ out:
 	return NULL;
 }
 
+// free a brick
 static void brk_free(struct brk_device *brk)
 {
 	put_disk(brk->brk_disk);
@@ -528,6 +575,7 @@ static void brk_free(struct brk_device *brk)
 	kfree(brk);
 }
 
+// initialize a brick
 static struct brk_device *brk_init_one(int i)
 {
 	struct brk_device *brk;
@@ -546,6 +594,7 @@ out:
 	return brk;
 }
 
+// delete one brick
 static void brk_del_one(struct brk_device *brk)
 {
 	list_del(&brk->brk_list);
@@ -553,6 +602,7 @@ static void brk_del_one(struct brk_device *brk)
 	brk_free(brk);
 }
 
+// probe a brick
 static struct kobject *brk_probe(dev_t dev, int *part, void *data)
 {
 	struct brk_device *brk;
